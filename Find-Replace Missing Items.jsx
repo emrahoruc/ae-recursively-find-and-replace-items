@@ -1,28 +1,59 @@
-﻿function replaceMissingFiles(projectFolderItem, searchFolderPath) {
-        var thisFolder = projectFolderItem;
-        var resFolder = Folder(searchFolderPath);
-        var subFolder, subSubFolder;
+function findReplaceMissingItems (templateFolder) {
 
-            for(var i = 1; i <= thisFolder.numItems; i++) {
-                if(thisFolder.item(i) instanceof FootageItem) {
-                                if(thisFolder.item(i).footageMissing == true) {
-                                findAndReplaceMissingFootage(thisFolder.item(i), resFolder);
-                                }
-                }
-            
+    function getItemsRecursive(items) {
+        var result = [];
+        for (var i = 1; i < items.length; i++) {
+            var item = items[i];
+            if (item instanceof FootageItem) {
+                result.push(item);
+            } else if (item instanceof FolderItem) {
+                result = result.concat(getItemsRecursive(item.items));
+            }
+        }
+        return result;
     }
-}
 
-function findAndReplaceMissingFootage(missingItem, resourceFolder) {
-    var foundItem;
-    var searchItems =resourceFolder.getFiles();
-    for(var i = 0; i < searchItems.length; i++) {
-        if(searchItems[i].fsName.replace(/%20/g, " " ).indexOf(missingItem.name.replace(/%20/g, " ")) != -1) {
-            missingItem.replace(searchItems[i]);
+    function getFilesRecursive(folder) {
+        var files = folder.getFiles();
+        var result = [];
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            if (file instanceof File) {
+                result.push(file);
+            } else if (file instanceof Folder) {
+                result = result.concat(getFilesRecursive(file));
+            }
+        }
+        return result;
+    }
+
+    var items = getItemsRecursive(app.project.items);
+    var files = getFilesRecursive(Folder(templateFolder));
+
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+
+        gAECommandLineRenderer.log_file
+            .writeln("ITEM --> "+ item.name +" ["+ item.toString() +"]");
+        
+        if (item.footageMissing == true) {
+            // find missing items in files and replace
+            for (var j = 0; j < files.length; j++) {
+                var file = files[j];
+                
+                if (file.fsName.replace(/%20/g, " " ).indexOf(item.name.replace(/%20/g, " ")) != -1) {
+                    
+                    gAECommandLineRenderer.log_file
+                        .writeln("REPLACE --> "+ item.name +" WITH "+ file.fsName);
+                    
+                    item.replace(file);
+                }
             }
         }
     }
+}
+
 
 app.beginUndoGroup("Replacing");
-replaceMissingFiles(app.project.item(1), "C:\\Users\\Nate\\Documents\\test");
+findReplaceMissingItems("C:/my-ae-files/tempalte-1");
 app.endUndoGroup();
